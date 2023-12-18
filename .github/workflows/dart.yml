@@ -2,7 +2,7 @@ name: Flutter CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -10,21 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-      - uses: subosito/flutter-action@v2
+      - name: Set Up Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
 
-      - run: flutter test
+      - name: Run Tests
+        run: flutter test
 
-      - run: flutter analyze
+      - name: Run Code Analysis
+        run: flutter analyze
 
-      - run: flutter build apk
-      - run: flutter build appbundle
+      - name: Build APK
+        run: flutter build apk
 
-      # Add additional steps like deploying to stores or generating documentation here
-
-      # Upload artifacts for further analysis (optional)
-      - upload: flutter_build/outputs/
-
+      - name: Build App Bundle
+        run: flutter build appbundle
