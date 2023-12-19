@@ -4,3 +4,7 @@ bool isWhite(int index) {
   bool isWhite = (x + y) % 2 == 0;
   return isWhite;
 }
+
+bool isWithinBoard(int row, int col) {
+  return row >= 0 && row < 8 && col >= 0 && col < 8;
+}
