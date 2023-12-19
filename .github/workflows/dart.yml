@@ -1,0 +1,29 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+
+      - name: Run Code Analysis
+        run: flutter analyze
+
+      - name: Build APK
+        run: flutter build apk
+
+      - name: Build App Bundle
+        run: flutter build appbundle
