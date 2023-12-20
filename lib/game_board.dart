@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:chess/colors.dart';
 import 'package:chess/dead_pieces.dart';
 import 'package:chess/helper.dart';
@@ -37,8 +35,11 @@ class _GameBoardState extends State<GameBoard> {
   List<ChessPiece> blackPiecesTaken = [];
 
   // Boolean value to describe whose turn is it
-
   bool isWhiteTurn = true;
+
+  // Initial positions of the kings. Keeping tracks makes it easy to detect the check
+  List<int> whiteKingPosition = [7, 3];
+  List<int> blackKingPosition = [0, 3];
 
   @override
   void initState() {
@@ -111,6 +112,7 @@ class _GameBoardState extends State<GameBoard> {
     );
 
     // Place rooks
+    //TODO
     newBoard[2][0] = ChessPiece(
       type: ChessPieceType.rook,
       isWhite: false,
@@ -397,12 +399,17 @@ class _GameBoardState extends State<GameBoard> {
             candidateMoves.add([newRow, newCol]); // valid move
           }
         }
+        // Handle castling
+        //handleCastling(row, col, piece.isWhite, board, candidateMoves);
 
         break;
       default:
     }
     return candidateMoves;
   }
+
+
+  
 
   // Move piece
 
