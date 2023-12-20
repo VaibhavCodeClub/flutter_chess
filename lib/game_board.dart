@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:chess/colors.dart';
 import 'package:chess/dead_pieces.dart';
 import 'package:chess/helper.dart';
@@ -37,8 +35,11 @@ class _GameBoardState extends State<GameBoard> {
   List<ChessPiece> blackPiecesTaken = [];
 
   // Boolean value to describe whose turn is it
-
   bool isWhiteTurn = true;
+
+  // Initial positions of the kings. Keeping tracks makes it easy to detect the check
+  List<int> whiteKingPosition = [7, 3];
+  List<int> blackKingPosition = [0, 3];
 
   @override
   void initState() {
@@ -56,14 +57,18 @@ class _GameBoardState extends State<GameBoard> {
 
     for (var i = 0; i < 8; i++) {
       newBoard[1][i] = ChessPiece(
-          type: ChessPieceType.pawn,
-          isWhite: false,
-          imagePath: "images/pawn.png");
+        type: ChessPieceType.pawn,
+        isWhite: false,
+        imagePath: "images/pawn.png",
+        hasMoved: false,
+      );
 
       newBoard[6][i] = ChessPiece(
-          type: ChessPieceType.pawn,
-          isWhite: true,
-          imagePath: "images/pawn.png");
+        type: ChessPieceType.pawn,
+        isWhite: true,
+        imagePath: "images/pawn.png",
+        hasMoved: false,
+      );
     }
 
     // Place knights
@@ -71,21 +76,25 @@ class _GameBoardState extends State<GameBoard> {
       type: ChessPieceType.knight,
       isWhite: false,
       imagePath: "images/knight.png",
+      hasMoved: false,
     );
     newBoard[0][6] = ChessPiece(
       type: ChessPieceType.knight,
       isWhite: false,
       imagePath: "images/knight.png",
+      hasMoved: false,
     );
     newBoard[7][1] = ChessPiece(
       type: ChessPieceType.knight,
       isWhite: true,
       imagePath: "images/knight.png",
+      hasMoved: false,
     );
     newBoard[7][6] = ChessPiece(
       type: ChessPieceType.knight,
       isWhite: true,
       imagePath: "images/knight.png",
+      hasMoved: false,
     );
 
     // Place bishops
@@ -93,43 +102,52 @@ class _GameBoardState extends State<GameBoard> {
       type: ChessPieceType.bishop,
       isWhite: false,
       imagePath: "images/bishop.png",
+      hasMoved: false,
     );
     newBoard[0][5] = ChessPiece(
       type: ChessPieceType.bishop,
       isWhite: false,
       imagePath: "images/bishop.png",
+      hasMoved: false,
     );
     newBoard[7][2] = ChessPiece(
       type: ChessPieceType.bishop,
       isWhite: true,
       imagePath: "images/bishop.png",
+      hasMoved: false,
     );
     newBoard[7][5] = ChessPiece(
       type: ChessPieceType.bishop,
       isWhite: true,
       imagePath: "images/bishop.png",
+      hasMoved: false,
     );
 
     // Place rooks
+    //TODO
     newBoard[2][0] = ChessPiece(
       type: ChessPieceType.rook,
       isWhite: false,
       imagePath: "images/rook.png",
+      hasMoved: true,
     );
     newBoard[0][7] = ChessPiece(
       type: ChessPieceType.rook,
       isWhite: false,
       imagePath: "images/rook.png",
+      hasMoved: false,
     );
     newBoard[7][0] = ChessPiece(
       type: ChessPieceType.rook,
       isWhite: true,
       imagePath: "images/rook.png",
+      hasMoved: false,
     );
     newBoard[7][7] = ChessPiece(
       type: ChessPieceType.rook,
       isWhite: true,
       imagePath: "images/rook.png",
+      hasMoved: false,
     );
 
     // Place queens
@@ -137,11 +155,13 @@ class _GameBoardState extends State<GameBoard> {
       type: ChessPieceType.queen,
       isWhite: false,
       imagePath: "images/queen.png",
+      hasMoved: false,
     );
     newBoard[7][4] = ChessPiece(
       type: ChessPieceType.queen,
       isWhite: true,
       imagePath: "images/queen.png",
+      hasMoved: false,
     );
 
     // Place kings
@@ -149,11 +169,13 @@ class _GameBoardState extends State<GameBoard> {
       type: ChessPieceType.king,
       isWhite: false,
       imagePath: "images/king.png",
+      hasMoved: false,
     );
     newBoard[7][3] = ChessPiece(
       type: ChessPieceType.king,
       isWhite: true,
       imagePath: "images/king.png",
+      hasMoved: false,
     );
 
     board = newBoard;
@@ -397,11 +419,63 @@ class _GameBoardState extends State<GameBoard> {
             candidateMoves.add([newRow, newCol]); // valid move
           }
         }
+        // Handle castling
+        handleCastling(row, col, piece.isWhite, board, candidateMoves);
 
         break;
       default:
     }
     return candidateMoves;
+  }
+
+  void handleCastling(int kingRow, int kingCol, bool isWhite,
+      List<List<ChessPiece?>> board, List<List<int>> candidateMoves) {
+    // Check if the king has moved
+    if (isWhite && kingRow == 7 && kingCol == 4) {
+      // Check if the kingside rook is present and hasn't moved
+      if (board[7][7] != null &&
+          board[7][7]!.type == ChessPieceType.rook &&
+          !board[7][7]!.hasMoved) {
+        // Check if the squares between the king and rook are empty
+        if (board[7][5] == null && board[7][6] == null) {
+          // Add kingside castling move
+          candidateMoves.add([7, 6]);
+        }
+      }
+
+      // Check if the queenside rook is present and hasn't moved
+      if (board[7][0] != null &&
+          board[7][0]!.type == ChessPieceType.rook &&
+          !board[7][0]!.hasMoved) {
+        // Check if the squares between the king and rook are empty
+        if (board[7][1] == null && board[7][2] == null && board[7][3] == null) {
+          // Add queenside castling move
+          candidateMoves.add([7, 2]);
+        }
+      }
+    } else if (!isWhite && kingRow == 0 && kingCol == 4) {
+      // Check if the kingside rook is present and hasn't moved
+      if (board[0][7] != null &&
+          board[0][7]!.type == ChessPieceType.rook &&
+          !board[0][7]!.hasMoved) {
+        // Check if the squares between the king and rook are empty
+        if (board[0][5] == null && board[0][6] == null) {
+          // Add kingside castling move
+          candidateMoves.add([0, 6]);
+        }
+      }
+
+      // Check if the queenside rook is present and hasn't moved
+      if (board[0][0] != null &&
+          board[0][0]!.type == ChessPieceType.rook &&
+          !board[0][0]!.hasMoved) {
+        // Check if the squares between the king and rook are empty
+        if (board[0][1] == null && board[0][2] == null && board[0][3] == null) {
+          // Add queenside castling move
+          candidateMoves.add([0, 2]);
+        }
+      }
+    }
   }
 
   // Move piece
