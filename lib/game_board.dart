@@ -40,6 +40,7 @@ class _GameBoardState extends State<GameBoard> {
   // Initial positions of the kings. Keeping tracks makes it easy to detect the check
   List<int> whiteKingPosition = [7, 3];
   List<int> blackKingPosition = [0, 3];
+  bool checkStatus = false;
 
   @override
   void initState() {
@@ -197,7 +198,7 @@ class _GameBoardState extends State<GameBoard> {
 
       // If piece is selected, calculate it's valid moves
       validMoves =
-          calculateRawValidMoves(selectedRow, selectedCol, selectedPiece);
+          calculateValidMoves(selectedRow, selectedCol, selectedPiece, true);
     });
   }
 
@@ -408,11 +409,29 @@ class _GameBoardState extends State<GameBoard> {
     return candidateMoves;
   }
 
+  // Calculate valid moves
+  List<List<int>> calculateValidMoves(
+      int row, int col, ChessPiece? piece, bool checkSim) {
+    List<List<int>> realValidMoves = [];
+    List<List<int>> candidateMoves = calculateRawValidMoves(row, col, piece);
 
-  
+    // After calculating all the moves remove the moves that will make king position dangerous
+    if (checkSim) {
+      for (var candidateMove in candidateMoves) {
+        int endRow = candidateMove[0];
+        int endCol = candidateMove[1];
+
+        if (simulatedMoveIsSafe(piece!, row, col, endRow, endCol)) {
+          realValidMoves.add(candidateMove);
+        }
+      }
+    } else {
+      realValidMoves = realValidMoves;
+    }
+    return realValidMoves;
+  }
 
   // Move piece
-
   void movePiece(int newRow, int newCol) {
     // If the new spot has the enemy piece add it to captured list
     if (board[newRow][newCol] != null) {
@@ -422,9 +441,26 @@ class _GameBoardState extends State<GameBoard> {
           : blackPiecesTaken.add(capturedPiece);
     }
 
+    // If the piece being moved is our beloved King
+    if (selectedPiece!.type == ChessPieceType.king) {
+      // Update the appropriate king positions such that it cannot be placed on dangerous position
+      if (selectedPiece!.isWhite) {
+        whiteKingPosition = [newRow, newCol];
+      } else {
+        blackKingPosition = [newRow, newCol];
+      }
+    }
+
     // Move the piece and clean the old spot
     board[newRow][newCol] = selectedPiece;
     board[selectedRow][selectedCol] = null;
+
+    // See if Kings are being checked
+    if (isKingInCheck(!isWhiteTurn)) {
+      checkStatus = true;
+    } else {
+      checkStatus = false;
+    }
 
     // clear the selection
     setState(() {
@@ -464,6 +500,9 @@ class _GameBoardState extends State<GameBoard> {
               ),
             ),
           ),
+
+          // Game Status for king check
+          Text(checkStatus ? "Check!" : ""),
 
           // ChessBoard
           Expanded(
@@ -518,5 +557,74 @@ class _GameBoardState extends State<GameBoard> {
         ],
       ),
     );
+  }
+
+  // Check if the king is under check or not
+  bool isKingInCheck(bool isWhiteKing) {
+    // Get the position of the king
+    List<int> kingPosition =
+        isWhiteKing ? whiteKingPosition : blackKingPosition;
+
+    // check is a any enemy piece attacks the king
+    for (var i = 0; i < 8; i++) {
+      for (var j = 0; j < 8; j++) {
+        // Skip the empty squares as well as the same colored pieces
+        if (board[i][j] == null || board[i][j]!.isWhite == isWhiteKing) {
+          continue;
+        }
+        List<List<int>> pieceValidMoves =
+            calculateValidMoves(i, j, board[i][j], false);
+
+        // Check if the king is being attacked or not
+        if (pieceValidMoves.any((move) =>
+            move[0] == kingPosition[0] && move[1] == kingPosition[1])) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // Simulate valid moves which keeps king under attack are not really valid ones
+  bool simulatedMoveIsSafe(
+      ChessPiece piece, int startRow, int startCol, int endRow, int endCol) {
+    // Save the current board status
+    ChessPiece? originalDestination = board[endRow][endCol];
+
+    // If the piecec is King , save it's current position and update to new one
+    List<int>? originalKingPosition;
+    if (piece.type == ChessPieceType.king) {
+      originalKingPosition =
+          piece.isWhite ? whiteKingPosition : blackKingPosition;
+
+      // Update the king position
+      if (piece.isWhite) {
+        whiteKingPosition = [endRow, endCol];
+      } else {
+        blackKingPosition = [endRow, endCol];
+      }
+    }
+    // Simulate the move
+    board[endRow][endCol] = piece;
+    board[startRow][startCol] = null;
+
+    // Check if our own king under attack or not
+    bool kingInCheck = isKingInCheck(piece.isWhite);
+
+    // Restore board to it's original state
+    board[startRow][startCol] = piece;
+    board[endRow][endCol] = originalDestination;
+
+    // If the piece was the King then restore it to original position
+    if (piece.type == ChessPieceType.king) {
+      if (piece.isWhite) {
+        whiteKingPosition = originalKingPosition!;
+      } else {
+        blackKingPosition = originalKingPosition!;
+      }
+    }
+
+    // If king is in the check that means it's not a valid move
+    return !kingInCheck;
   }
 }
