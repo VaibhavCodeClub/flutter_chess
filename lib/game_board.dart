@@ -164,42 +164,40 @@ class _GameBoardState extends State<GameBoard> {
 
   // User selects a piece
 
-  void pieceSelected(int row, int col) {
-    setState(() {
-      // Select the piece is there exists unselected one
-      // if (board[row][col] != null) {
-      //   selectedPiece = board[row][col];
-      //   selectedRow = row;
-      //   selectedCol = col;
-      // }
+  void selectPiece(int row, int col) {
+    setState(
+      () {
+        // no piece has been selected yet, this is the first selection
+        if (selectedPiece == null && board[row][col] != null) {
+          if (board[row][col]!.isWhite == isWhiteTurn) {
+            selectedPiece = board[row][col];
+            selectedRow = row;
+            selectedCol = col;
+          }
+        }
 
-      if (selectedPiece == null && board[row][col] != null) {
-        // Not even single piece is selected this is first selection
-        if (board[row][col]!.isWhite == isWhiteTurn) {
+        // There is a piece already selected, but user can select another one of their piece
+        else if (board[row][col] != null &&
+            board[row][col]!.isWhite == selectedPiece!.isWhite) {
           selectedPiece = board[row][col];
           selectedRow = row;
           selectedCol = col;
         }
-      }
 
-      // The piece is already selected but now user wants to select another one then
-      else if (board[row][col] != null &&
-          board[row][col]!.isWhite == selectedPiece!.isWhite) {
-        selectedPiece = board[row][col];
-        selectedRow = row;
-        selectedCol = col;
-      }
-
-      // If user selects the piece and clicks on the valid move square, then move the piece there
-      else if (selectedPiece != null &&
-          validMoves.any((element) => element[0] == row && element[1] == col)) {
-        movePiece(row, col);
-      }
-
-      // If piece is selected, calculate it's valid moves
-      validMoves =
-          calculateValidMoves(selectedRow, selectedCol, selectedPiece, true);
-    });
+        // if there is a piece selected and user taps on a square that is a valid move, move there
+        else if (selectedPiece != null &&
+            validMoves
+                .any((element) => element[0] == row && element[1] == col)) {
+          movePiece(row, col);
+        } // if the piece is selected then calculate the valid moves
+        validMoves = calculateValidMoves(
+          selectedRow,
+          selectedCol,
+          selectedPiece,
+          true,
+        );
+      },
+    );
   }
 
   // Calculate raw valid moves
@@ -425,8 +423,6 @@ class _GameBoardState extends State<GameBoard> {
           realValidMoves.add(candidateMove);
         }
       }
-    } else {
-      realValidMoves = realValidMoves;
     }
     return realValidMoves;
   }
@@ -456,19 +452,41 @@ class _GameBoardState extends State<GameBoard> {
     board[selectedRow][selectedCol] = null;
 
     // See if Kings are being checked
+    //bool isCheck = isKingInCheck(!isWhiteTurn);
+
+    // see if any kings are under attack
     if (isKingInCheck(!isWhiteTurn)) {
       checkStatus = true;
     } else {
       checkStatus = false;
     }
 
-    // clear the selection
     setState(() {
+      //TODO
+      //checkStatus = isCheck; // Update check status
       selectedPiece = null;
       selectedRow = -1;
       selectedCol = -1;
       validMoves = [];
     });
+
+    // check if it's check mate
+    if (isCheckMate(!isWhiteTurn)) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("CHECK MATE!"),
+            actions: [
+              TextButton(
+                onPressed: resetGame,
+                child: const Text("Play again"),
+              )
+            ],
+          );
+        },
+      );
+    }
 
     // Change the turns
     isWhiteTurn = !isWhiteTurn;
@@ -535,7 +553,7 @@ class _GameBoardState extends State<GameBoard> {
                   piece: board[x][y],
                   isSelected: isSelected,
                   isValidMove: isValidMove,
-                  onTap: () => pieceSelected(x, y),
+                  onTap: () => selectPiece(x, y),
                 );
               },
             ),
@@ -565,23 +583,26 @@ class _GameBoardState extends State<GameBoard> {
     List<int> kingPosition =
         isWhiteKing ? whiteKingPosition : blackKingPosition;
 
-    // check is a any enemy piece attacks the king
-    for (var i = 0; i < 8; i++) {
-      for (var j = 0; j < 8; j++) {
-        // Skip the empty squares as well as the same colored pieces
+    // Iterate through all pieces on the board
+    for (int i = 0; i < 8; i++) {
+      for (int j = 0; j < 8; j++) {
+        // Skip empty squares or squares with pieces of the same color
         if (board[i][j] == null || board[i][j]!.isWhite == isWhiteKing) {
           continue;
         }
+
+        // Check if the piece can attack the king
         List<List<int>> pieceValidMoves =
             calculateValidMoves(i, j, board[i][j], false);
 
-        // Check if the king is being attacked or not
+        // Check if the king is being attacked
         if (pieceValidMoves.any((move) =>
             move[0] == kingPosition[0] && move[1] == kingPosition[1])) {
           return true;
         }
       }
     }
+
     return false;
   }
 
@@ -626,5 +647,47 @@ class _GameBoardState extends State<GameBoard> {
 
     // If king is in the check that means it's not a valid move
     return !kingInCheck;
+  }
+
+// IS CHECK MATE?
+  bool isCheckMate(bool isWhiteKing) {
+    // if the king is not in check, then it's not checkmate
+    if (!isKingInCheck(isWhiteKing)) {
+      return false;
+    }
+
+    // if there is atleast one legal move for any of the player pieces, then it's not checkmate
+    for (int i = 0; i < 8; i++) {
+      for (int j = 0; j < 8; j++) {
+        // skip the empty square and pieces of the same color as the king
+        if (board[i][j] == null || board[i][j]!.isWhite != isWhiteKing) {
+          continue;
+        }
+
+        List<List<int>> pieceValidMoves =
+            calculateValidMoves(i, j, board[i][j], true);
+        // check if the king's position is in this peice's valid moves
+        if (pieceValidMoves.isNotEmpty) {
+          return false;
+        }
+      }
+    }
+
+    // if none of the above condition are met, then there is not legal move left to make
+    // its check mate
+    return true;
+  }
+
+// RESET FOR NEW GAME4
+  void resetGame() {
+    Navigator.pop(context);
+    _initializeBoard();
+    checkStatus = false;
+    whitePiecesTaken.clear();
+    blackPiecesTaken.clear();
+    whiteKingPosition = [7, 4];
+    blackKingPosition = [0, 4];
+    isWhiteTurn = true;
+    setState(() {});
   }
 }
